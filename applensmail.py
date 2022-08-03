@@ -29,8 +29,11 @@ groups = pd.read_excel(MailRecipientExcel, sheet_name='groups', engine="openpyxl
 # converting column in dataframe to list and droping Blank\Nan\None values
 SMO = ",".join(groups[groups.columns[0]].dropna().tolist())
 MSOADMLead = ",".join(groups[groups.columns[1]].dropna().tolist())
-to_xl = ",".join(recipient[recipient.columns[0]].dropna().tolist())  # +","+SMO
-cc_xl = ",".join(recipient[recipient.columns[1]].dropna().tolist())  # +","+MSOADMLead
+avmdartChamps=",".join(groups[groups.columns[2]].dropna().tolist())
+L1AVM=",".join(groups[groups.columns[3]].dropna().tolist())
+to_xl = ",".join(recipient[recipient.columns[0]].dropna().tolist())  +","+SMO
+onsitecc_xl = ",".join(recipient[recipient.columns[1]].dropna().tolist())
+offshorecc_xl = ",".join(recipient[recipient.columns[3]].dropna().tolist())
 bcc_xl = ",".join(recipient[recipient.columns[2]].dropna().tolist())
 
 # Associate Details
@@ -95,11 +98,11 @@ offshoreraw = na_removed[na_removed['Location'] == 'Offshore']
 
 # onsite,offshore-Filter Red to Amber(yellow)
 # remove duplicate\identical rows
-onsite = onsiteraw[onsiteraw['[Effort TS Compliance%]'] < 80].drop_duplicates(subset=None, keep="first", inplace=False)
-offshore = offshoreraw[offshoreraw['[Effort TS Compliance%]'] < 80].drop_duplicates(subset=None, keep="first",
+onsite = onsiteraw[onsiteraw['[Effort TS Compliance%]'] <= 80].drop_duplicates(subset=None, keep="first", inplace=False)
+offshore = offshoreraw[offshoreraw['[Effort TS Compliance%]'] <= 80].drop_duplicates(subset=None, keep="first",
                                                                                     inplace=False)
 AssociateWithInadequateInformation = AssociateWithInadequateInformationraw[
-    AssociateWithInadequateInformationraw['[Effort TS Compliance%]'] < 80].drop_duplicates(subset=None, keep="first",
+    AssociateWithInadequateInformationraw['[Effort TS Compliance%]'] <= 80].drop_duplicates(subset=None, keep="first",
                                                                                            inplace=False)
 
 # collecting mail ids of onshore and offshore
@@ -284,18 +287,25 @@ for row in range(0, AssociateWithInadequateInformation.shape[0]):
             InadequeteInitiation += td.format(tdval=str(list(AssociateWithInadequateInformation.iloc[:, col])[row]), ColorCode="#FFFFFF")
     InadequeteInitiation += "</tr>" + '\n'
 
-currentMonth = datetime.datetime.now().strftime("%B")
+#currentMonth = datetime.datetime.now().strftime("%B")
+today = datetime.date.today()
+first = today.replace(day=1)
+lastMonth = first - datetime.timedelta(days=1)
+if str(datetime.datetime.now().day) not in ["1","2","3","4","5"]:
+    currentMonth = datetime.datetime.now().strftime("%B")
+else:
+    currentMonth=lastMonth.strftime("%B")
 
-
-def applensmail(onoff, associateData, pivotdata ,recieveraddress):
+onsitecarboncopy = onsitecc_xl
+offshorecarboncopy = offshorecc_xl
+AssociateWithInadequateInformation_To='Gopinath.Natesan@cognizant.com,Sakthirudhra.R@cognizant.com,Rajesh.Mahendran2@cognizant.com,sruthi.nandakumar@cognizant.com,priyanga.kathiravan@cognizant.com,3ML1AVMCIS@cognizant.com'
+def applensmail(onoff, associateData, pivotdata ,recieveraddress,carboncopy):
     greeting = "Hi All"
     bodysentence = "We need immediate attention to capture the efforts in Applens."
     From = 'USSACPrd@mmm.com'
-    reciever = to_xl#"P.Anuraj@cognizant.com" #+ "," +
-    carboncopy = cc_xl#"ac5qdzz@mmm.com"#
-    blindcarboncopy = bcc_xl#"ac5qdzz@mmm.com"#
-    subject = "Applens compliance for {CurrentMonth} {onoroff}".format(CurrentMonth=currentMonth,
-                                                                       onoroff=onoff)  # *****1
+    reciever ="P.Anuraj@cognizant.com"
+    blindcarboncopy = bcc_xl
+    subject = "Applens compliance for {CurrentMonth} {onoroff}".format(CurrentMonth=currentMonth,onoroff=onoff)  # *****1
     attachments = ""
     mailfontstyle = "Cambria"
     html_file = '''<!DOCTYPE html>
@@ -352,9 +362,9 @@ def applensmail(onoff, associateData, pivotdata ,recieveraddress):
     msgRoot = MIMEMultipart('related')
     msgRoot['Subject'] = subject
     msgRoot['From'] = From
-    msgRoot['Cc'] = carboncopy
-    msgRoot['To'] = reciever  +","+recieveraddress
-    msgRoot['Bcc'] = blindcarboncopy
+    msgRoot['Cc'] = ",".join(list(set((carboncopy).split(","))))
+    msgRoot['To'] = ",".join(list(set((reciever  +","+recieveraddress).split(","))))
+    msgRoot['Bcc'] = ",".join(list(set((blindcarboncopy).split(","))))
     msgRoot.preamble = '====================================================='
     msgAlternative = MIMEMultipart('alternative')
     msgRoot.attach(msgAlternative)
@@ -389,9 +399,9 @@ def applensmail(onoff, associateData, pivotdata ,recieveraddress):
     print("Email is sent successfully")
 
 
-applensmail("Offshore", AssociateInitiationOffshore, PivotInitiationOffshore ,offshorerecivermailaddress)
-applensmail("Onsite", AssociateInitiationOnsite, PivotInitiationOnsite,offshorerecivermailaddress)
-applensmail("Associates with Inadequete Information"+" "+str(datetime.datetime.today())[:10],InadequeteInitiation,"Associate with Inadequate Location and Process Area Information",offshorerecivermailaddress)
+applensmail("Offshore", AssociateInitiationOffshore, PivotInitiationOffshore ,offshorerecivermailaddress+","+to_xl+","+SMO,offshorecarboncopy+","+MSOADMLead+","+avmdartChamps)
+applensmail("Onsite", AssociateInitiationOnsite, PivotInitiationOnsite,onsiterecivermailaddress+","+to_xl+","+SMO,onsitecarboncopy+","+MSOADMLead)
+applensmail("Associates with Inadequete Information"+" "+str(datetime.datetime.today())[:10],InadequeteInitiation,"Associate with Inadequate Location and Process Area Information",AssociateWithInadequateInformation_To,"ac5qdzz@mmm.com")
 
 print("success")
 
